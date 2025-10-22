@@ -271,8 +271,10 @@ class CompleteProductionDataGenerator:
         sales_id = 1
         
         # Берем только каждый 3-й день чтобы уменьшить объем данных
-        sample_dates = self.time_df[self.time_df['Date'].dt.day % 3 == 0]
-        
+        # sample_dates = self.time_df[self.time_df['Date'].dt.day % 3 == 0]
+        sample_dates = self.time_df.copy() # убрал данную обрезку по каждому третьему дню, так как
+        # приоритет на корректность прогноза
+
         for _, time_row in sample_dates.iterrows():
             for _, product in self.products.iterrows():
                 # Фактические продажи
@@ -291,7 +293,9 @@ class CompleteProductionDataGenerator:
                         'Return_Qty': max(0, int(actual_qty * 0.02)),
                         'Sales_Status': 'completed',
                         'sku': product['sku'],
-                        'date': time_row['Date']
+                        'date': time_row['Date'],
+                        'Distribution_Point': f"Торговая точка {np.random.randint(1, 6)}",
+                        'is_Promotion': np.random.randint(0, 2)
                     })
                     sales_id += 1
                 
