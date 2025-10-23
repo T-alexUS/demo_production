@@ -292,7 +292,81 @@ class CompleteProductionDataGenerator:
                 })
                 
         return pd.DataFrame(stock_data)
-    
+
+    def generate_component_supply_schedule(self, product_compound: pd.DataFrame):
+        """
+        Генерация графика поставок и остатков компонентов для производства.
+        Поставки происходят не каждый день, а примерно раз в 3–7 дней.
+        Аргументы:
+            product_compound (pd.DataFrame): справочник компонентов с полями Component_ID, Component_Name.
+        """
+        print("Генерация графика поставок и остатков компонентов...")
+
+        # Проверяем наличие справочника дат
+        if not hasattr(self, 'time_df') or self.time_df.empty:
+            self.time_df = self.generate_dim_time()
+
+        # --- Пул поставщиков ---
+        suppliers = [
+            'ООО "БиоСнаб"',
+            'ЗАО "ХимПромПоставка"',
+            'ООО "КосмоСнаб"',
+            'ООО "НатурРесурс"',
+            'ООО "ЭкоХимСнаб"'
+        ]
+
+        supply_data = []
+        supply_id = 1
+
+        # --- Уникальные компоненты ---
+        unique_components = product_compound[['Component_ID', 'Component_Name']].drop_duplicates()
+
+        # Можно ограничить количество компонентов для генерации (например, 30%)
+        sampled_components = unique_components.sample(frac=0.3, random_state=42)
+
+        # --- Стабильные нормативы поставки для каждой пары "компонент–поставщик" ---
+        component_supplier_norms = {}
+        for _, comp in sampled_components.iterrows():
+            for supplier in suppliers:
+                component_supplier_norms[(comp['Component_ID'], supplier)] = round(np.random.uniform(3, 14), 0)
+
+        # --- Генерация записей по датам ---
+        for _, date_row in self.time_df.iterrows():
+            date_value = date_row['Date']
+
+            # Не каждый день — поставки происходят раз в 3–7 дней
+            if random.random() > 0.25:  # ~25% дат будут использоваться
+                continue
+
+            for _, comp in sampled_components.iterrows():
+                # Не для всех компонентов каждый раз
+                if random.random() > 0.5:
+                    continue
+
+                supplier = random.choice(suppliers)
+                normative_supply = component_supplier_norms[(comp['Component_ID'], supplier)]
+
+                current_stock = np.random.randint(30, 200)
+                supply_qty = np.random.randint(50, 100)
+
+                supply_data.append({
+                    'Supply_ID': supply_id,
+                    'Component_ID': comp['Component_ID'],
+                    'Component_Name': comp['Component_Name'],
+                    'Поставщик': supplier,
+                    'Текущие_Остатки': current_stock,
+                    'Норматив_Поставки': normative_supply,
+                    'Дата_Поставки': date_value,
+                    'Количество_Поставки': supply_qty
+                })
+                supply_id += 1
+
+        # --- Преобразуем в DataFrame ---
+        component_supply = pd.DataFrame(supply_data)
+
+        print(f"Сгенерировано {len(component_supply)} записей графика поставок")
+        return component_supply
+
     def generate_production_calendar(self):
         """Генерация календаря простоя линий"""
         print("Генерация производственного календаря...")
@@ -512,6 +586,7 @@ class CompleteProductionDataGenerator:
         safety_stock_norms = self.generate_safety_stock_norms()
         
         # Основные таблицы фактов
+        supply_schedule = self.generate_component_supply_schedule(products_compound)
         sales_actual = self.generate_sales_actual()
         sales_forecast = self.generate_sales_forecast()
         inventory_balances = self.generate_inventory_balances()
@@ -530,6 +605,7 @@ class CompleteProductionDataGenerator:
             
             # Вчерашние таблицы
             sales_actual.to_excel(writer, sheet_name='Fact_Sales_Actual', index=False)
+            supply_schedule.to_excel(writer, sheet_name='Supply_Schedule', index=False)
             sales_forecast.to_excel(writer, sheet_name='Fact_Sales_Forecast', index=False)
             inventory_balances.to_excel(writer, sheet_name='Fact_Inventory_Balances', index=False)
             production_plans.to_excel(writer, sheet_name='Fact_Production_Plans', index=False)
@@ -556,6 +632,7 @@ class CompleteProductionDataGenerator:
             'production_calendar': production_calendar,
             'safety_stock_norms': safety_stock_norms,
             'sales_actual': sales_actual,
+            'supply_schedule': supply_schedule,
             'sales_forecast': sales_forecast,
             'inventory_balances': inventory_balances,
             'production_plans': production_plans
