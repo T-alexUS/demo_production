@@ -88,7 +88,9 @@ class CompleteProductionDataGenerator:
         return self.products
 
     def generate_product_compound(self, products_df):
-        """Генерация состава (ингредиентов) для каждого товара с возможными аналогами"""
+        """Генерация состава (ингредиентов) для каждого товара с возможными аналогами.
+           Аналоги также попадают в список компонентов как отдельные строки.
+        """
         print("Генерация состава продуктов...")
 
         # Пул возможных видов сырья
@@ -120,16 +122,16 @@ class CompleteProductionDataGenerator:
         }
 
         compounds_data = []
+        component_id = 1  # счётчик для уникальных ID компонентов
 
         for _, row in products_df.iterrows():
             num_components = random.randint(5, 10)
             selected_components = random.sample(raw_materials, num_components)
 
             for comp_name in selected_components:
-                # Норматив исходного компонента
                 qty_norm = round(np.random.uniform(0.1, 3.0), 3)
 
-                # Проверяем, есть ли аналог у этого компонента
+                # Проверяем, есть ли аналог
                 if comp_name in analog_pairs:
                     has_analog = 1
                     analog_name = analog_pairs[comp_name]
@@ -139,7 +141,9 @@ class CompleteProductionDataGenerator:
                     analog_name = None
                     analog_qty = None
 
+                # Основной компонент
                 compounds_data.append({
+                    'Component_ID': component_id,
                     'sku': row['sku'],
                     'Component_Name': comp_name,
                     'Норматив_сырья': qty_norm,
@@ -147,6 +151,20 @@ class CompleteProductionDataGenerator:
                     'Аналог_компонента': analog_name,
                     'Норматив_аналог': analog_qty
                 })
+                component_id += 1
+
+                # Если есть аналог — добавляем его как отдельную строку
+                if has_analog == 1:
+                    compounds_data.append({
+                        'Component_ID': component_id,
+                        'sku': row['sku'],
+                        'Component_Name': analog_name,
+                        'Норматив_сырья': analog_qty,
+                        'Есть_аналог': 0,  # сам аналог уже не имеет аналога
+                        'Аналог_компонента': None,
+                        'Норматив_аналог': None
+                    })
+                    component_id += 1
 
         self.product_compound = pd.DataFrame(compounds_data)
         return self.product_compound
