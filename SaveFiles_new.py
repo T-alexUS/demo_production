@@ -86,7 +86,71 @@ class CompleteProductionDataGenerator:
                 
         self.products = pd.DataFrame(products_data)
         return self.products
-    
+
+    def generate_product_compound(self, products_df):
+        """Генерация состава (ингредиентов) для каждого товара с возможными аналогами"""
+        print("Генерация состава продуктов...")
+
+        # Пул возможных видов сырья
+        raw_materials = [
+            'Вода очищенная', 'Глицерин', 'Пантенол', 'Масло ши', 'Масло жожоба', 'Кокосовое масло',
+            'Экстракт алоэ вера', 'Экстракт ромашки', 'Экстракт зелёного чая', 'Гиалуроновая кислота',
+            'Витамин C', 'Витамин E', 'Ниацинамид', 'Церамиды', 'Коллаген', 'Эластин',
+            'Молочная кислота', 'Салициловая кислота', 'Бетаин', 'Ланолин',
+            'Масло миндальное', 'Масло виноградной косточки', 'Масло какао', 'Масло лаванды',
+            'Парфюмерная композиция', 'Консервант Phenoxyethanol', 'Эмульгатор', 'Загуститель Xanthan Gum',
+            'Стабилизатор pH', 'Окрашивающий пигмент', 'УФ-фильтр SPF30'
+        ]
+
+        # Возможные пары аналогов (осмысленные замены)
+        analog_pairs = {
+            'Масло ши': 'Масло какао',
+            'Масло жожоба': 'Масло миндальное',
+            'Масло виноградной косточки': 'Масло жожоба',
+            'Гиалуроновая кислота': 'Пантенол',
+            'Экстракт алоэ вера': 'Экстракт ромашки',
+            'Экстракт зелёного чая': 'Экстракт ромашки',
+            'Витамин C': 'Ниацинамид',
+            'Витамин E': 'Церамиды',
+            'Коллаген': 'Эластин',
+            'Молочная кислота': 'Салициловая кислота',
+            'Эмульгатор': 'Загуститель Xanthan Gum',
+            'Консервант Phenoxyethanol': 'Консервант Benzoic Acid',
+            'Парфюмерная композиция': 'Масло лаванды'
+        }
+
+        compounds_data = []
+
+        for _, row in products_df.iterrows():
+            num_components = random.randint(5, 10)
+            selected_components = random.sample(raw_materials, num_components)
+
+            for comp_name in selected_components:
+                # Норматив исходного компонента
+                qty_norm = round(np.random.uniform(0.1, 3.0), 3)
+
+                # Проверяем, есть ли аналог у этого компонента
+                if comp_name in analog_pairs:
+                    has_analog = 1
+                    analog_name = analog_pairs[comp_name]
+                    analog_qty = round(qty_norm * np.random.uniform(0.9, 1.1), 3)
+                else:
+                    has_analog = 0
+                    analog_name = None
+                    analog_qty = None
+
+                compounds_data.append({
+                    'sku': row['sku'],
+                    'Component_Name': comp_name,
+                    'Норматив_сырья': qty_norm,
+                    'Есть_аналог': has_analog,
+                    'Аналог_компонента': analog_name,
+                    'Норматив_аналог': analog_qty
+                })
+
+        self.product_compound = pd.DataFrame(compounds_data)
+        return self.product_compound
+
     def generate_dim_time(self):
         """Генерация таблицы времени"""
         print("Генерация временной размерности...")
@@ -417,6 +481,7 @@ class CompleteProductionDataGenerator:
         
         # Генерируем все таблицы
         products = self.generate_products()
+        products_compound = self.generate_product_compound(products)
         dim_time = self.generate_dim_time()
         dim_customers = self.generate_dim_customers()
         dim_channels = self.generate_dim_channels()
@@ -439,6 +504,7 @@ class CompleteProductionDataGenerator:
         with pd.ExcelWriter('production_complete_model.xlsx') as writer:
             # Новые таблицы
             products.to_excel(writer, sheet_name='products', index=False)
+            products_compound.to_excel(writer, sheet_name='products_compound', index=False)
             demand_forecast.to_excel(writer, sheet_name='demand_forecast', index=False)
             stock.to_excel(writer, sheet_name='stock', index=False)
             production_calendar.to_excel(writer, sheet_name='production_calendar', index=False)
@@ -466,6 +532,7 @@ class CompleteProductionDataGenerator:
         # Статистика
         all_data = {
             'products': products,
+            'products_compound': products_compound,
             'demand_forecast': demand_forecast,
             'stock': stock,
             'production_calendar': production_calendar,
