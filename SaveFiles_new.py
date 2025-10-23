@@ -194,7 +194,7 @@ class CompleteProductionDataGenerator:
                 warehouse = random.choice(self.warehouses)
                 
                 # Динамика остатков
-                base_stock = np.random.randint(200, 1000)
+                base_stock = np.random.randint(50, 500)
                 day_factor = 1.0 if time_row['Is_Weekend'] else 0.8
                 
                 s_current_i = max(0, int(base_stock * day_factor))
@@ -249,11 +249,12 @@ class CompleteProductionDataGenerator:
         norms_data = []
         
         for _, product in self.products.iterrows():
-            s_target_i = np.random.randint(100, 300)
+            s_target_i = np.random.randint(200, 300)
             
             norms_data.append({
                 'sku': product['sku'],
                 's_target_i': s_target_i,
+                's_min_availiable_i': round(s_target_i * 0.1, 0),
                 'Product_ID': product['Product_ID']
             })
             
@@ -295,7 +296,7 @@ class CompleteProductionDataGenerator:
                         'sku': product['sku'],
                         'date': time_row['Date'],
                         'Distribution_Point': f"Торговая точка {np.random.randint(1, 6)}",
-                        'is_Promotion': np.random.randint(0, 2)
+                        'is_Promotion': np.random.randint(0, 10)
                     })
                     sales_id += 1
                 
